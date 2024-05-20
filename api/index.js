@@ -1,12 +1,16 @@
-const fastify = require("fastify")({ logger: true });
-const axios = require("axios");
+import Fastify from "fastify";
+import axios from "axios";
+
+const app = Fastify({
+  logger: true,
+});
 
 // Use environment variables to store sensitive information
 const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 
-fastify.get("/get-images", async (request, reply) => {
+app.get("/get-images", async (req, res) => {
   try {
     const response = await axios.get(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/resources/image`,
@@ -17,19 +21,14 @@ fastify.get("/get-images", async (request, reply) => {
         },
       }
     );
-    return response.data.resources;
+    return res.send(response.data.resources);
   } catch (error) {
-    throw fastify.httpErrors.internalServerError(
-      "Error fetching images from Cloudinary"
-    );
+    app.log.error(error);
+    return res.status(500).send("Error fetching images from Cloudinary");
   }
 });
 
-// Run the server
-fastify.listen(3000, "0.0.0.0", (err, address) => {
-  if (err) {
-    fastify.log.error(err);
-    process.exit(1);
-  }
-  fastify.log.info(`Server listening on ${address}`);
-});
+export default async function handler(req, res) {
+  await app.ready();
+  app.server.emit("request", req, res);
+}
