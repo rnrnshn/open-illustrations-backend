@@ -1,66 +1,35 @@
-import Fastify from 'fastify'
+const fastify = require("fastify")({ logger: true });
+const axios = require("axios");
 
-const app = Fastify({
-  logger: true,
-})
+// Use environment variables to store sensitive information
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 
-app.get('/', async (req, reply) => {
-  return reply.status(200).type('text/html').send(html)
-})
+fastify.get("/get-images", async (request, reply) => {
+  try {
+    const response = await axios.get(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/resources/image`,
+      {
+        auth: {
+          username: CLOUDINARY_API_KEY,
+          password: CLOUDINARY_API_SECRET,
+        },
+      }
+    );
+    return response.data.resources;
+  } catch (error) {
+    throw fastify.httpErrors.internalServerError(
+      "Error fetching images from Cloudinary"
+    );
+  }
+});
 
-export default async function handler(req, reply) {
-  await app.ready()
-  app.server.emit('request', req, reply)
-}
-
-const html = `
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@exampledev/new.css@1.1.2/new.min.css"
-    />
-    <title>Vercel + Fastify Hello World</title>
-    <meta
-      name="description"
-      content="This is a starter template for Vercel + Fastify."
-    />
-  </head>
-  <body>
-    <h1>Vercel + Fastify Hello World</h1>
-    <p>
-      This is a starter template for Vercel + Fastify. Requests are
-      rewritten from <code>/*</code> to <code>/api/*</code>, which runs
-      as a Vercel Function.
-    </p>
-    <p>
-        For example, here is the boilerplate code for this route:
-    </p>
-    <pre>
-<code>import Fastify from 'fastify'
-
-const app = Fastify({
-  logger: true,
-})
-
-app.get('/', async (req, res) => {
-  return res.status(200).type('text/html').send(html)
-})
-
-export default async function handler(req: any, res: any) {
-  await app.ready()
-  app.server.emit('request', req, res)
-}</code>
-    </pre>
-    <p>
-    <p>
-      <a href="https://vercel.com/templates/other/fastify-serverless-function">
-      Deploy your own
-      </a>
-      to get started.
-  </body>
-</html>
-`
+// Run the server
+fastify.listen(3000, "0.0.0.0", (err, address) => {
+  if (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+  fastify.log.info(`Server listening on ${address}`);
+});
