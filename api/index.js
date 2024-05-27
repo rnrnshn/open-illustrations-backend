@@ -15,6 +15,20 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Enable CORS for all routes
+app.addHook("onRequest", (req, reply, done) => {
+  reply.header("Access-Control-Allow-Origin", "*");
+  reply.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  reply.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
+  done();
+});
+
 // Define a root route for testing
 app.get("/", async (req, res) => {
   return res.send({ message: "Welcome to the Fastify server!" });
@@ -30,10 +44,20 @@ app.get("/get-images", async (req, res) => {
 
   try {
     app.log.info("Fetching images from Cloudinary by tags:", tags);
-    const result = await cloudinary.api.resources_by_tag(tags);
+    let allResources = [];
+    let nextCursor = null;
 
-    app.log.info("Cloudinary API Response:", result);
-    return res.send(result.resources);
+    do {
+      const result = await cloudinary.v2.api.resources_by_tag(tags, {
+        max_results: 50,
+        next_cursor: nextCursor,
+      });
+      allResources = allResources.concat(result.resources);
+      nextCursor = result.next_cursor;
+    } while (nextCursor);
+
+    app.log.info("Total images fetched:", allResources.length);
+    return res.send(allResources);
   } catch (error) {
     app.log.error("Error fetching images from Cloudinary:", error.message);
     return res.status(500).send("Error fetching images from Cloudinary");
