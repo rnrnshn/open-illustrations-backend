@@ -1,28 +1,41 @@
 import Fastify from "fastify";
-import axios from "axios";
+import cloudinary from "cloudinary";
+import dotenv from "dotenv";
 
+// Load environment variables from .env file
+dotenv.config();
+
+// Initialize the Fastify instance
 const app = Fastify({ logger: true });
 
-// Use environment variables to store sensitive information
-const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
-const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
-const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
+// Configure Cloudinary
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-// Define the route handler for /get-images
+// Define a root route for testing
+app.get("/", async (req, res) => {
+  return res.send({ message: "Welcome to the Fastify server!" });
+});
+
+// Define the route handler for /get-images with tags using Cloudinary SDK
 app.get("/get-images", async (req, res) => {
+  const tags = req.query.tags;
+
+  if (!tags) {
+    return res.status(400).send("Tags parameter is required");
+  }
+
   try {
-    const response = await axios.get(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/resources/image`,
-      {
-        auth: {
-          username: CLOUDINARY_API_KEY,
-          password: CLOUDINARY_API_SECRET,
-        },
-      }
-    );
-    return res.send(response.data.resources);
+    app.log.info("Fetching images from Cloudinary by tags:", tags);
+    const result = await cloudinary.api.resources_by_tag(tags);
+
+    app.log.info("Cloudinary API Response:", result);
+    return res.send(result.resources);
   } catch (error) {
-    app.log.error(error);
+    app.log.error("Error fetching images from Cloudinary:", error.message);
     return res.status(500).send("Error fetching images from Cloudinary");
   }
 });
